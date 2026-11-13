@@ -250,35 +250,74 @@
                                 </div>
                             )}
 
-                            {/* 클리어 화면 */}
-                            {stage === clearStage && totalQuestions > 0 && (
-                                <div className="flex flex-col items-center justify-center text-center mt-4">
-                                    <div className={`terminal-box p-8 max-w-xl w-full border-2 ${theme.border} ${theme.shadow} rounded-lg`}>
-                                        <Icon name="CheckCircle" size={70} className={`${theme.text} mx-auto mb-4 animate-bounce`} />
-                                        <h1 className="text-3xl font-bold mb-2 text-white font-mono">SECTOR CLEARED</h1>
-                                        <p className={`text-lg ${theme.text} mb-6 font-bold`}>[ {SITE_NUMBER}구역 데이터 분석 완료 ]</p>
-                                        <div className="bg-gray-950 border border-gray-700 p-4 rounded-lg text-left mb-6 font-mono text-sm">
-                                            <p className="text-red-400 font-bold mb-3 flex items-center gap-2">⚠️ 부정행위 검증 로그</p>
-                                            <div className="space-y-2 text-gray-300">
-                                                <div className="flex justify-between border-b border-gray-800 pb-1">
-                                                    <span>• 소속 모둠:</span>
-                                                    <span className={`font-bold ${theme.text}`}>{theme.emoji} {theme.name}</span>
-                                                </div>
-                                                {questions.map((_, idx) => (
-                                                    <div key={idx} className="flex justify-between border-b border-gray-800 pb-1">
-                                                        <span>• 문항 {idx + 1}:</span>
-                                                        <span className={`font-bold ${myTeam !== PAGE_IDENTITY ? 'text-red-500 animate-pulse' : 'text-white'}`}>
-                                                            {solvedLog[`q${idx + 1}`] || "-"}
-                                                        </span>
+                            {/* 클리어 화면 (타 팀 QR 자동 판별 포함) */}
+                            {stage === clearStage && totalQuestions > 0 && (() => {
+                                const isWrongQR = myTeam !== PAGE_IDENTITY;
+                                const qrTeam = teamStyles[PAGE_IDENTITY];
+
+                                return (
+                                    <div className="flex flex-col items-center justify-center text-center mt-4">
+                                        <div className={`terminal-box p-8 max-w-xl w-full border-2 ${isWrongQR ? 'border-red-500 shadow-[0_0_25px_rgba(239,68,68,0.6)]' : `${theme.border} ${theme.shadow}`} rounded-lg`}>
+                                            
+                                            {/* 1. 상단 아이콘 및 제목 분기 */}
+                                            {isWrongQR ? (
+                                                <>
+                                                    <Icon name="AlertTriangle" size={70} className="text-red-500 mx-auto mb-4 glitch-effect" />
+                                                    <h1 className="text-3xl font-bold mb-2 text-red-500 font-mono">ACCESS VIOLATION</h1>
+                                                    <p className="text-lg text-red-400 mb-6 font-bold">[ 타 팀 QR코드 스캔 감지 ]</p>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Icon name="CheckCircle" size={70} className={`${theme.text} mx-auto mb-4 animate-bounce`} />
+                                                    <h1 className="text-3xl font-bold mb-2 text-white font-mono">SECTOR CLEARED</h1>
+                                                    <p className={`text-lg ${theme.text} mb-6 font-bold`}>[ {SITE_NUMBER}구역 데이터 분석 완료 ]</p>
+                                                </>
+                                            )}
+
+                                            {/* 2. 검증 로그 박스 */}
+                                            <div className="bg-gray-950 border border-gray-700 p-4 rounded-lg text-left mb-6 font-mono text-sm">
+                                                <p className="text-yellow-400 font-bold mb-3 flex items-center gap-2">📋 보안 검증 로그</p>
+                                                <div className="space-y-2 text-gray-300">
+                                                    <div className="flex justify-between border-b border-gray-800 pb-1">
+                                                        <span>• 내 소속 모둠:</span>
+                                                        <span className={`font-bold ${theme.text}`}>{theme.emoji} {theme.name}</span>
                                                     </div>
-                                                ))}
+                                                    <div className="flex justify-between border-b border-gray-800 pb-1">
+                                                        <span>• 스캔한 QR 주인:</span>
+                                                        <span className={`font-bold ${qrTeam.text}`}>{qrTeam.emoji} {qrTeam.name} 전용</span>
+                                                    </div>
+                                                    {questions.map((_, idx) => (
+                                                        <div key={idx} className="flex justify-between border-b border-gray-800 pb-1">
+                                                            <span>• 문항 {idx + 1}:</span>
+                                                            <span className={`font-bold ${isWrongQR ? 'text-red-400' : 'text-green-400'}`}>
+                                                                {isWrongQR ? `❌ 불일치 (${theme.name}≠${qrTeam.name})` : `✅ 정상 (${solvedLog[`q${idx + 1}`]})`}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
+
+                                            {/* 3. 하단 행동 지침 분기 */}
+                                            {isWrongQR ? (
+                                                <div className="bg-red-950/80 border-2 border-red-500 p-4 rounded-lg text-white">
+                                                    <p className="text-red-400 font-bold text-lg mb-1">🚨 기록 무효 (다음 구역 이동 불가)</p>
+                                                    <p className="text-sm text-gray-200 leading-relaxed">
+                                                        현재 <span className={`font-bold ${qrTeam.text}`}>{qrTeam.name} 팀</span>의 QR코드를 풀었습니다.<br/>
+                                                        <span className={`font-bold ${theme.text}`}>{theme.name} 팀</span> 전용 QR코드를 다시 찾아 스캔하십시오!
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <div className="bg-green-950/40 border border-green-500/50 p-4 rounded-lg">
+                                                    <p className="text-green-400 font-bold text-sm mb-1">✅ 정상 통과 확인 완료</p>
+                                                    <p className="text-yellow-400 font-bold text-lg animate-pulse">
+                                                        다음 구역의 {theme.name} 팀 QR코드를 찾아 이동하십시오!
+                                                    </p>
+                                                </div>
+                                            )}
                                         </div>
-                                        <p className="text-gray-400 text-sm font-sans mb-4">로그에 빨간색 경고가 없다면 정상 통과입니다.</p>
-                                        <p className="text-yellow-400 font-bold text-lg animate-pulse">다음 구역의 QR코드를 찾아 이동하십시오!</p>
                                     </div>
-                                </div>
-                            )}
+                                );
+                            })()}
                         </div>
                     </div>
 
