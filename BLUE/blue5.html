@@ -32,7 +32,6 @@
     <script src="../common.js"></script>
     <script src="../Header.js"></script>
     <script src="../Footer.js"></script>
-    
     <script type="text/babel">
         const { useState, useEffect } = React;
 
@@ -294,38 +293,85 @@
                                 </div>
                             )}
 
-                            {/* 최종 클리어 화면 */}
-                            {stage === clearStage && totalQuestions > 0 && (
-                                <div className="flex flex-col items-center justify-center text-center mt-4">
-                                    <div className={`terminal-box p-8 max-w-xl w-full border-2 ${theme.border} ${theme.shadow} rounded-lg`}>
-                                        <Icon name="CheckCircle" size={80} className={`${theme.text} mx-auto mb-4 animate-bounce`} />
-                                        <h1 className="text-4xl font-bold mb-2 text-white font-mono">ALL CLEAR</h1>
-                                        <p className={`text-xl ${theme.text} mb-6 font-bold`}>[ 학교 시스템 복구 완료 ]</p>
-                                        <div className="bg-black/50 border border-gray-800 p-6 rounded mb-6 w-full text-center">
-                                            <p className="text-gray-500 text-sm mb-2 font-mono">🚀 1~5구역 돌파 총 소요 시간</p>
-                                            <p className="text-5xl font-bold text-white font-mono">{finalTotalTime}</p>
-                                        </div>
-                                        <div className="bg-gray-950 border border-gray-700 p-4 rounded-lg text-left mb-6 font-mono text-sm">
-                                            <p className="text-red-400 font-bold mb-3 flex items-center gap-2">⚠️ 5구역(최종) 검증 로그</p>
-                                            <div className="space-y-2 text-gray-300">
-                                                <div className="flex justify-between border-b border-gray-800 pb-1">
-                                                    <span>• 소속 모둠:</span>
-                                                    <span className={`font-bold ${theme.text}`}>{theme.emoji} {theme.name}</span>
-                                                </div>
-                                                {questions.map((_, idx) => (
-                                                    <div key={idx} className="flex justify-between border-b border-gray-800 pb-1">
-                                                        <span>• 문항 {idx + 1}:</span>
-                                                        <span className={`font-bold ${myTeam !== PAGE_IDENTITY ? 'text-red-500 animate-pulse' : 'text-white'}`}>
-                                                            {solvedLog[`q${idx + 1}`] || "-"}
-                                                        </span>
-                                                    </div>
-                                                ))}
+                            {/* 최종 클리어 화면 (5구역 전용: 총 소요 시간 + 타 팀 QR 판별 포함) */}
+                            {stage === clearStage && totalQuestions > 0 && (() => {
+                                const isWrongQR = myTeam !== PAGE_IDENTITY;
+                                const qrTeam = teamStyles[PAGE_IDENTITY];
+
+                                return (
+                                    <div className="flex flex-col items-center justify-center text-center mt-4">
+                                        <div className={`terminal-box p-8 max-w-xl w-full border-2 ${isWrongQR ? 'border-red-500 shadow-[0_0_25px_rgba(239,68,68,0.6)]' : `${theme.border} ${theme.shadow}`} rounded-lg`}>
+
+                                            {/* 1. 상단 아이콘 및 제목 */}
+                                            {isWrongQR ? (
+                                                <>
+                                                    <Icon name="AlertTriangle" size={80} className="text-red-500 mx-auto mb-4 glitch-effect" />
+                                                    <h1 className="text-4xl font-bold mb-2 text-red-500 font-mono">ACCESS VIOLATION</h1>
+                                                    <p className="text-xl text-red-400 mb-6 font-bold">[ 타 팀 QR코드 스캔 감지 ]</p>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Icon name="CheckCircle" size={80} className={`${theme.text} mx-auto mb-4 animate-bounce`} />
+                                                    <h1 className="text-4xl font-bold mb-2 text-white font-mono">ALL CLEAR</h1>
+                                                    <p className={`text-xl ${theme.text} mb-6 font-bold`}>[ 학교 시스템 복구 완료 ]</p>
+                                                </>
+                                            )}
+
+                                            {/* 2. 총 소요 시간 박스 */}
+                                            <div className="bg-black/50 border border-gray-800 p-6 rounded mb-6 w-full text-center">
+                                                <p className="text-gray-500 text-sm mb-2 font-mono">🚀 1~5구역 돌파 총 소요 시간</p>
+                                                {isWrongQR ? (
+                                                    <p className="text-3xl font-bold text-red-500 font-mono">RECORD INVALID (기록 무효)</p>
+                                                ) : (
+                                                    <p className="text-5xl font-bold text-white font-mono">{finalTotalTime}</p>
+                                                )}
                                             </div>
+
+                                            {/* 3. 5구역 최종 검증 로그 */}
+                                            <div className="bg-gray-950 border border-gray-700 p-4 rounded-lg text-left mb-6 font-mono text-sm">
+                                                <p className="text-yellow-400 font-bold mb-3 flex items-center gap-2">📋 5구역(최종) 검증 로그</p>
+                                                <div className="space-y-2 text-gray-300">
+                                                    <div className="flex justify-between border-b border-gray-800 pb-1">
+                                                        <span>• 내 소속 모둠:</span>
+                                                        <span className={`font-bold ${theme.text}`}>{theme.emoji} {theme.name}</span>
+                                                    </div>
+                                                    <div className="flex justify-between border-b border-gray-800 pb-1">
+                                                        <span>• 스캔한 QR 주인:</span>
+                                                        <span className={`font-bold ${qrTeam.text}`}>{qrTeam.emoji} {qrTeam.name} 전용</span>
+                                                    </div>
+                                                    {questions.map((_, idx) => (
+                                                        <div key={idx} className="flex justify-between border-b border-gray-800 pb-1">
+                                                            <span>• 문항 {idx + 1}:</span>
+                                                            <span className={`font-bold ${isWrongQR ? 'text-red-400' : 'text-green-400'}`}>
+                                                                {isWrongQR ? `❌ 불일치 (${theme.name}≠${qrTeam.name})` : `✅ 정상 (${solvedLog[`q${idx + 1}`]})`}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {/* 4. 하단 최종 안내 문구 */}
+                                            {isWrongQR ? (
+                                                <div className="bg-red-950/80 border-2 border-red-500 p-4 rounded-lg text-white">
+                                                    <p className="text-red-400 font-bold text-lg mb-1">🚨 최종 완료 인증 불가</p>
+                                                    <p className="text-sm text-gray-200 leading-relaxed">
+                                                        현재 <span className={`font-bold ${qrTeam.text}`}>{qrTeam.name} 팀</span>의 최종 QR코드를 스캔했습니다.<br />
+                                                        <span className={`font-bold ${theme.text}`}>{theme.name} 팀</span> 전용 5구역 QR코드를 찾아 다시 진행하십시오!
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <div className="bg-green-950/40 border border-green-500/50 p-4 rounded-lg">
+                                                    <p className="text-green-400 font-bold text-sm mb-1">✅ 최종 보안 검증 통과</p>
+                                                    <p className="text-yellow-400 font-bold text-lg animate-pulse">
+                                                        이 화면을 선생님께 보여주고 미션을 완료하십시오!
+                                                    </p>
+                                                </div>
+                                            )}
+
                                         </div>
-                                        <p className="text-yellow-400 font-bold animate-pulse">이 화면을 선생님께 보여주고 미션을 완료하십시오!</p>
                                     </div>
-                                </div>
-                            )}
+                                );
+                            })()}
                         </div>
                     </div>
 
