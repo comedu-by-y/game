@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>반지하 탈출기 - SECTOR 5</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Noto+Sans+KR:wght@400;700&display=swap');
+        body { font-family: 'Courier Prime', 'Noto Sans KR', monospace; background-color: #0d1117; color: #00ff41; overflow: hidden; height: 100vh; margin: 0; }
+        .scroll-area { height: calc(100vh - 140px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        .scanline { width: 100%; height: 100px; z-index: 10; background: linear-gradient(0deg, rgba(0,0,0,0) 0%, rgba(255,255,255,0.05) 50%, rgba(0,0,0,0) 100%); position: fixed; bottom: 100%; animation: scanline 10s linear infinite; pointer-events: none; }
+        @keyframes scanline { 0% { bottom: 100%; } 100% { bottom: -100%; } }
+        .glitch-effect { animation: glitch 1s linear infinite; }
+        @keyframes glitch { 2%, 64% { transform: translate(2px,0) skew(0deg); } 4%, 60% { transform: translate(-2px,0) skew(0deg); } 62% { transform: translate(0,0) skew(5deg); } }
+        @keyframes fadeIn { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        .terminal-box { background-color: #1f2937; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #0d1117; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <div class="scanline"></div>
+
+    <!-- 공통 모듈 불러오기 -->
+    <script src="common.js"></script>
+    <script src="Header.js"></script>
+    <script src="Footer.js"></script>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const App = () => {
+            const SITE_NUMBER = 5;
+            const PAGE_IDENTITY = 'blue';
+
+            const [questions, setQuestions] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [myTeam, setMyTeam] = useState(null);
+            const [stage, setStage] = useState(0);
+            const [input, setInput] = useState("");
+            const [message, setMessage] = useState("");
+            const [shake, setShake] = useState(false);
+            const [showHint, setShowHint] = useState(false);
+
+            const [tokenInput, setTokenInput] = useState("");
+            const [finalTotalTime, setFinalTotalTime] = useState("");
+            const [solvedLog, setSolvedLog] = useState({});
+
+            const theme = myTeam
+                ? teamStyles[myTeam]
+                : { text: "text-gray-400", border: "border-gray-500", shadow: "", btn: "bg-gray-800 text-gray-400" };
+
+            // 구글 시트에서 5구역 문제 불러오기
+            useEffect(() => {
+                window.loadSheetQuestions(SITE_NUMBER)
+                    .then((data) => {
+                        setQuestions(data);
+                        setLoading(false);
+                    })
+                    .catch((err) => {
+                        console.error("문제 데이터 로드 실패:", err);
+                        setLoading(false);
+                    });
+            }, []);
+
+            const totalQuestions = questions.length;
+            const currentQ = questions[stage - 1];
+            const tokenStage = totalQuestions + 1;
+            const clearStage = totalQuestions + 2;
+
+            // 10초 뒤 힌트 표시
+            useEffect(() => {
+                setShowHint(false);
+                if (stage >= 1 && stage <= totalQuestions) {
+                    const timer = setTimeout(() => setShowHint(true), 10000);
+                    return () => clearTimeout(timer);
+                }
+            }, [stage, totalQuestions]);
+
+            const handleStartGame = () => {
+                if (!myTeam) return;
+                setStage(1);
+            };
+
+            // 객관식·주관식 통합 정답 확인
+            const checkAnswer = (submittedValue) => {
+                if (!currentQ) return;
+
+                const raw = submittedValue !== undefined ? submittedValue : input;
+                const cleanUser = raw.replace(/\s/g, '').toLowerCase();
+                const isCorrect = currentQ.answer.some(
+                    (ans) => ans.replace(/\s/g, '').toLowerCase() === cleanUser
+                );
+
+                if (isCorrect) {
+                    setMessage("ACCESS GRANTED...");
+                    const recordLog = `${theme.emoji} ${theme.name} (QR:${teamStyles[PAGE_IDENTITY].emoji})`;
+                    setSolvedLog((prev) => ({ ...prev, [`q${stage}`]: recordLog }));
+                    setTimeout(() => {
+                        setStage((prev) => prev + 1);
+                        setInput("");
+                        setMessage("");
+                    }, 1000);
+                } else {
+                    setMessage("ACCESS DENIED!");
+                    setShake(true);
+                    setTimeout(() => setShake(false), 500);
+                    setTimeout(() => setMessage(""), 1000);
+                }
+            };
+
+            // 최종 보안 토큰 검증 및 소요 시간 정산 (기존 로직 유지)
+            const verifyFinalToken = () => {
+                if (!tokenInput) return;
+                const decodedStartTime = parseInt(tokenInput.toLowerCase(), 36);
+
+                if (isNaN(decodedStartTime) || decodedStartTime > Date.now() || decodedStartTime < 1700000000000) {
+                    setMessage("INVALID TOKEN! 무효한 토큰입니다.");
+                    setShake(true);
+                    setTimeout(() => setShake(false), 500);
+                    setTimeout(() => setMessage(""), 1500);
+                    return;
+                }
+
+                const diff = Date.now() - decodedStartTime;
+                const totalMinutes = Math.floor(diff / 60000);
+                const totalSeconds = Math.floor((diff % 60000) / 1000);
+
+                setFinalTotalTime(`${totalMinutes}분 ${totalSeconds}초`);
+                setMessage("FINAL ACCESS GRANTED...");
+                setTimeout(() => {
+                    setStage(clearStage);
+                    setMessage("");
+                }, 1500);
+            };
+
+            const HintBadge = ({ text }) => (
+                <span className={`text-sm bg-gray-800 ${theme.text} px-2 py-1 rounded font-bold transition-opacity duration-1000 ${showHint ? 'opacity-100' : 'opacity-0'}`}>
+                    💡 {text}
+                </span>
+            );
+
+            if (loading) {
+                return (
+                    <div className="flex items-center justify-center h-screen font-mono text-xl">
+                        SYSTEM LOADING...
+                    </div>
+                );
+            }
+
+            return (
+                <div className="flex flex-col h-screen font-sans">
+                    {/* 공통 상단 헤더 */}
+                    <Header
+                        theme={theme}
+                        myTeam={myTeam}
+                        rightContent={
+                            stage > 0 && stage <= totalQuestions && (
+                                <div className="text-sm text-white bg-gray-800 px-3 py-1 rounded-full font-mono">
+                                    MISSION {stage} / {totalQuestions}
+                                </div>
+                            )
+                        }
+                    />
+
+                    <div className="scroll-area flex-grow pt-20 pb-24">
+                        <div className="max-w-3xl mx-auto p-4">
+                            {/* Stage 0: 팀 선택 및 경고 안내 */}
+                            {stage === 0 && (
+                                <div className="flex flex-col items-center justify-center text-center mt-6">
+                                    <div className={`terminal-box p-8 max-w-xl w-full border ${theme.border} ${theme.shadow} rounded-lg transition-all duration-500`}>
+                                        <div className="text-gray-400 font-mono mb-4 text-sm bg-gray-800 inline-block px-3 py-1 rounded-full border border-gray-600">
+                                            현재 위치: 제 {SITE_NUMBER} 구역
+                                        </div>
+                                        <Icon name="AlertTriangle" size={64} className={`${myTeam ? theme.text : 'text-gray-500'} mx-auto mb-6 glitch-effect`} />
+                                        <h1 className={`text-3xl font-bold mb-4 ${myTeam ? theme.text : 'text-white'}`}>SECURITY BOOT</h1>
+
+                                        {!myTeam ? (
+                                            <div>
+                                                <p className="text-gray-300 mb-6 font-bold">통신망 연결을 위해 소속 팀 컬러를 선택하십시오.</p>
+                                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                                    {Object.keys(teamStyles).map((key) => (
+                                                        <button
+                                                            key={key}
+                                                            onClick={() => setMyTeam(key)}
+                                                            className={`py-3 rounded font-bold uppercase transition-all ${teamStyles[key].btn} shadow-md`}
+                                                        >
+                                                            {teamStyles[key].emoji} {teamStyles[key].name}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="animate-fade-in">
+                                                <p className={`text-xl font-bold mb-6 ${theme.text}`}>
+                                                    {theme.emoji} {theme.name} 팀 권한 확인 완료.
+                                                </p>
+                                                <div className={`p-4 bg-gray-900 border ${theme.border} rounded text-sm text-left mb-6 text-gray-300`}>
+                                                    <p className="text-red-400 font-bold mb-2">※ 시스템 경고사항</p>
+                                                    <ul className="list-disc pl-4 space-y-1">
+                                                        <li>타 팀의 QR코드를 무단 스캔 시 실격 처리됩니다.</li>
+                                                    </ul>
+                                                </div>
+                                                <button
+                                                    onClick={handleStartGame}
+                                                    disabled={totalQuestions === 0}
+                                                    className={`w-full py-4 text-xl rounded font-bold uppercase transition-all ${theme.btn} disabled:opacity-50`}
+                                                >
+                                                    {totalQuestions === 0 ? "등록된 문제가 없습니다" : "시스템 가동 (START)"}
+                                                </button>
+                                                <button
+                                                    onClick={() => setMyTeam(null)}
+                                                    className="mt-4 text-gray-500 underline text-sm hover:text-white"
+                                                >
+                                                    팀 다시 선택하기
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Stage 1 ~ N: 구글 시트 문제 렌더링 */}
+                            {stage >= 1 && stage <= totalQuestions && currentQ && (
+                                <div className="animate-fade-in mb-8">
+                                    <div className="flex items-center justify-between mb-4 border-b border-gray-700 pb-2">
+                                        <h2 className="text-lg md:text-xl font-bold flex items-center gap-2 text-white break-keep">
+                                            <Icon name={currentQ.icon} className={theme.text} /> {currentQ.title}
+                                        </h2>
+                                        {currentQ.hint && <HintBadge text={currentQ.hint} />}
+                                    </div>
+
+                                    <div className={`p-6 rounded-lg bg-gray-800 border ${theme.border}`}>
+                                        {currentQ.subText && (
+                                            <p className="text-gray-400 mb-4 font-mono text-sm">{currentQ.subText}</p>
+                                        )}
+                                        <p className="text-lg text-white mb-4">{currentQ.question}</p>
+
+                                        {currentQ.codeBox && (
+                                            <div className="bg-gray-900 p-4 rounded-md flex justify-center items-center mt-2 border border-gray-700">
+                                                <span className="text-3xl font-bold text-white tracking-widest">{currentQ.codeBox}</span>
+                                            </div>
+                                        )}
+
+                                        {currentQ.type === "choice" && (
+                                            <div className="grid grid-cols-1 gap-3 mt-6">
+                                                {currentQ.options.map((item) => (
+                                                    <button
+                                                        key={item}
+                                                        onClick={() => checkAnswer(item)}
+                                                        className={`w-full p-4 rounded-lg border-2 ${theme.border} ${theme.bg} text-white font-bold hover:bg-gray-700 transition-all`}
+                                                    >
+                                                        {item}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 최종 보안 토큰 입력 및 해독 단계 */}
+                            {stage === tokenStage && totalQuestions > 0 && (
+                                <div className="flex flex-col items-center justify-center text-center mt-4">
+                                    <div className={`terminal-box p-8 max-w-xl w-full border-2 ${theme.border} ${theme.shadow} rounded-lg`}>
+                                        <Icon name="Lock" size={60} className={`${theme.text} mx-auto mb-4 animate-pulse`} />
+                                        <h1 className="text-3xl font-bold mb-4 text-white font-mono">FINAL DECRYPTION</h1>
+                                        <p className="text-lg text-gray-300 mb-6">
+                                            최종 시스템 권한을 획득하기 위한 마지막 절차입니다.<br />
+                                            <span className="text-red-400 font-bold underline">1구역에서 최초 발급받은 '보안 토큰'</span>을 입력하십시오.
+                                        </p>
+                                        <input
+                                            type="text"
+                                            value={tokenInput}
+                                            onChange={(e) => setTokenInput(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && verifyFinalToken()}
+                                            placeholder="보안 토큰 (예: LX2A9Z)"
+                                            className={`w-full p-4 mb-4 rounded text-center text-2xl bg-gray-900 border-2 ${theme.border} text-white font-mono uppercase tracking-widest`}
+                                        />
+                                        <button
+                                            onClick={verifyFinalToken}
+                                            className={`w-full py-4 rounded font-bold text-lg transition-all ${theme.btn}`}
+                                        >
+                                            토큰 해독 및 시간 정산
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 최종 클리어 화면 */}
+                            {stage === clearStage && totalQuestions > 0 && (
+                                <div className="flex flex-col items-center justify-center text-center mt-4">
+                                    <div className={`terminal-box p-8 max-w-xl w-full border-2 ${theme.border} ${theme.shadow} rounded-lg`}>
+                                        <Icon name="CheckCircle" size={80} className={`${theme.text} mx-auto mb-4 animate-bounce`} />
+                                        <h1 className="text-4xl font-bold mb-2 text-white font-mono">ALL CLEAR</h1>
+                                        <p className={`text-xl ${theme.text} mb-6 font-bold`}>[ 학교 시스템 복구 완료 ]</p>
+                                        <div className="bg-black/50 border border-gray-800 p-6 rounded mb-6 w-full text-center">
+                                            <p className="text-gray-500 text-sm mb-2 font-mono">🚀 1~5구역 돌파 총 소요 시간</p>
+                                            <p className="text-5xl font-bold text-white font-mono">{finalTotalTime}</p>
+                                        </div>
+                                        <div className="bg-gray-950 border border-gray-700 p-4 rounded-lg text-left mb-6 font-mono text-sm">
+                                            <p className="text-red-400 font-bold mb-3 flex items-center gap-2">⚠️ 5구역(최종) 검증 로그</p>
+                                            <div className="space-y-2 text-gray-300">
+                                                <div className="flex justify-between border-b border-gray-800 pb-1">
+                                                    <span>• 소속 모둠:</span>
+                                                    <span className={`font-bold ${theme.text}`}>{theme.emoji} {theme.name}</span>
+                                                </div>
+                                                {questions.map((_, idx) => (
+                                                    <div key={idx} className="flex justify-between border-b border-gray-800 pb-1">
+                                                        <span>• 문항 {idx + 1}:</span>
+                                                        <span className={`font-bold ${myTeam !== PAGE_IDENTITY ? 'text-red-500 animate-pulse' : 'text-white'}`}>
+                                                            {solvedLog[`q${idx + 1}`] || "-"}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <p className="text-yellow-400 font-bold animate-pulse">이 화면을 선생님께 보여주고 미션을 완료하십시오!</p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* 공통 하단 푸터 (주관식 문제일 때만 표시) */}
+                    <Footer
+                        visible={stage >= 1 && stage <= totalQuestions && currentQ?.type === "text"}
+                        theme={theme}
+                        input={input}
+                        setInput={setInput}
+                        onSubmit={() => checkAnswer()}
+                        shake={shake}
+                    />
+
+                    {/* 정답/오답/토큰 알림 모달 */}
+                    {message && (
+                        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/80">
+                            <div className={`border-2 ${theme.border} p-6 text-center rounded-lg bg-gray-900 min-w-[200px]`}>
+                                <div className={`text-2xl font-bold font-mono ${message.includes("DENIED") || message.includes("INVALID") ? "text-red-500" : theme.text}`}>
+                                    {message}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
