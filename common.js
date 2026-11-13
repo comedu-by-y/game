@@ -1,6 +1,6 @@
 // common.js
 // ▼ 여기에 1단계에서 복사한 구글 시트 '웹에 게시(CSV)' 주소를 넣으세요.
-window.SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/여기에_본인_주소_붙여넣기/pub?output=csv";
+window.SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPctatzTF63KajDWnExCd-UFNByW9iVFxRs5DyI6kAAhdrg10fkLeDkxxFkaQ91rXbzEyBfS0s261v/pub?gid=861423837&single=true&output=csv";
 
 window.teamStyles = {
     red: { name: "RED", text: "text-red-500", border: "border-red-500", bg: "bg-red-950/30", btn: "bg-red-900 border-red-500 text-white hover:bg-red-600", shadow: "shadow-[0_0_15px_rgba(239,68,68,0.4)]", emoji: "🔴" },
